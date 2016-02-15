@@ -36,7 +36,7 @@ crsp = crsp %>%
 Computing the size for each stock. Adding decile portfolio number column, 
 which specifies the stocks decile portfolio index for certain month
 ```{r,cache=T}
-crsp$size = log(abs(crsp$PRC)*crsp$SHROUT)
+crsp$size = abs(crsp$PRC)*crsp$SHROUT
 
 crsp.size = crsp[crsp$size>0 & !is.na(crsp$size) & !is.na(crsp$PRC_next_month),]
 crsp.size = crsp.size %>%
@@ -50,11 +50,11 @@ crsp.size = crsp.size %>%
 Creating the decile portfolios for each month
 and computing simple and cumulative return for it
 ```{r,cache=T}
-portfolios.by_size = summarise(crsp.size,ret=100*(sum(abs(PRC_next_month),na.rm=T)/sum(abs(PRC),na.rm=T)-1))
+portfolios.by_size = summarise(crsp.size, ret.equal_weighted=100*(sum(abs(PRC_next_month),na.rm=T)/sum(abs(PRC),na.rm=T)-1), ret.value_weighted=100*(sum(1/size*abs(PRC_next_month),na.rm=T)/sum(1/size*abs(PRC),na.rm=T)-1))
 portfolios.by_size = portfolios.by_size[order(portfolios.by_size$date_ym),]
 portfolios.by_size = portfolios.by_size %>%
   group_by(size.decile) %>%
-  mutate(cum_ret = cumsum(ret)) %>%
+  mutate(cum_ret.equal_weighted = cumsum(ret.equal_weighted),cum_ret.value_weighted = cumsum(ret.value_weighted)) %>%
   ungroup
 
 #formatting the data for plotting
@@ -65,25 +65,47 @@ portfolios.by_size$size.decile = as.factor(portfolios.by_size$size.decile)
 ```
 
 
-Plotting the cumulative returns for each decile portfolio
+Plotting the cumulative returns for each decile portfolio (equal weighted)
 ```{r}
-ggplot(portfolios.by_size, aes(x = date_ym, y = cum_ret, colour=size.decile)) +
+ggplot(portfolios.by_size, aes(x = date_ym, y = cum_ret.equal_weighted, colour=size.decile)) +
   geom_line()+
   xlab('Date')+
-  ylab('Cumulative Return')
+  ylab('Cumulative Return (equal weighted)')
 ```
 
 
-Plotting the cumulative return for top-bottom difference portfolio
+Plotting the cumulative return for top-bottom difference portfolio (equal weighted)
 ```{r}
 top_portfolio = portfolios.by_size[portfolios.by_size$size.decile==1,]
 bottom_portfolio = portfolios.by_size[portfolios.by_size$size.decile==10,]
 
 potfolio.diff = data.frame(date_ym=top_portfolio$date_ym)
-potfolio.diff$cum_ret = top_portfolio$cum_ret - bottom_portfolio$cum_ret
-ggplot(potfolio.diff, aes(x = date_ym, y = cum_ret)) +
+potfolio.diff$cum_ret.equal_weighted = top_portfolio$cum_ret.equal_weighted - bottom_portfolio$cum_ret.equal_weighted
+ggplot(potfolio.diff, aes(x = date_ym, y = cum_ret.equal_weighted)) +
   geom_line()+
   xlab('Date')+
-  ylab('Cumulative Return')
+  ylab('Cumulative Return (equal weighted)')
 ```
 
+
+Plotting the cumulative returns for each decile portfolio (value weighted)
+```{r}
+ggplot(portfolios.by_size, aes(x = date_ym, y = cum_ret.value_weighted, colour=size.decile)) +
+  geom_line()+
+  xlab('Date')+
+  ylab('Cumulative Return (value weighted)')
+```
+
+
+Plotting the cumulative return for top-bottom difference portfolio (value weighted)
+```{r}
+top_portfolio = portfolios.by_size[portfolios.by_size$size.decile==1,]
+bottom_portfolio = portfolios.by_size[portfolios.by_size$size.decile==10,]
+
+potfolio.diff = data.frame(date_ym=top_portfolio$date_ym)
+potfolio.diff$cum_ret.value_weighted = top_portfolio$cum_ret.value_weighted - bottom_portfolio$cum_ret.value_weighted
+ggplot(potfolio.diff, aes(x = date_ym, y = cum_ret.value_weighted)) +
+  geom_line()+
+  xlab('Date')+
+  ylab('Cumulative Return (value weighted)')
+```
